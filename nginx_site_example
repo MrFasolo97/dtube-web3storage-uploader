@@ -1,0 +1,31 @@
+
+map $http_apikey $api_client_name {
+    default "";
+    "SOME_VERY_LONG_RANDOM_AND_SECRET_STRING_AS_API_AUTH_KEY" "user_1";
+}
+
+server {
+    server_name upload.example.com;
+    listen 5082 ssl;
+    # Certs paths and config here
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    client_max_body_size 2G;
+
+    location ~*/ {
+        auth_request /_validate_apikey;
+        proxy_pass http://localhost:5081;
+    }
+    location = /_validate_apikey {
+        internal;
+
+        if ($http_apikey = "") {
+            return 401; # Unauthorized
+        }
+        if ($api_client_name = "") {
+            return 403; # Forbidden
+        }
+
+        return 204; # OK (no content)
+    }
+}

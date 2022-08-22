@@ -1,0 +1,4 @@
+tmp/*
+config.json
+node_modules.bun
+bun.lockb

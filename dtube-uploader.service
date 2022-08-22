@@ -1,0 +1,17 @@
+[Unit]
+Description=DTube IPFS Uploader
+After=network.target
+
+[Service]
+Type=simple
+Restart=always
+ExecStart=/home/user/dtube-uploader/run.sh
+WorkingDirectory=/home/user/dtube-uploader
+KillMode=control-group
+KillSignal=2
+SendSIGHUP=yes
+User=user
+Group=user
+
+[Install]
+WantedBy=multi-user.target
