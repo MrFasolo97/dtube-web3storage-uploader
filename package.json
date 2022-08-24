@@ -1,12 +1,12 @@
 {
-  "name": "dtube-uploader",
-  "version": "0.0.0",
-  "private": true,
+  "name": "dtube-web3storage-uploader",
+  "version": "0.1.0",
+  "private": false,
   "description": "",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "daemon": "node ./daemon.js -d"
+    "daemon": "node daemon -d"
   },
   "bun": {
     "child_process": false
@@ -19,12 +19,20 @@
     "files-from-path": "^0.2.6",
     "helmet": "^5.1.1",
     "ipfs-car": "^0.8.1",
+    "log4js": "^6.6.1",
     "minimist": "^1.2.5",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
     "pathlib": "^0.1.2",
+    "project-version": "^2.0.0",
+    "resumable-chunk-upload": "^1.0.8",
     "web3.storage": "^4.3.0"
   },
   "author": "MrFasolo97",
-  "license": "(Apache-2.0 AND MIT)"
+  "license": "(Apache-2.0 AND MIT)",
+  "devDependencies": {
+    "eslint": "^8.22.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.26.0"
+  }
 }
