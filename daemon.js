@@ -2,10 +2,17 @@ import process, { exit } from 'process';
 import { Command } from 'commander';
 import { Web3Storage, getFilesFromPath } from 'web3.storage';
 import express from 'express';
-import multer from 'multer';
 import * as fs from 'fs';
 import version from 'project-version';
 import log4js from 'log4js';
+import tus from 'tus-node-server';
+
+const { EVENTS } = tus;
+
+const server = new tus.Server();
+server.datastore = new tus.FileStore({
+  path: '/files',
+});
 
 log4js.configure({
   appenders: {
@@ -41,19 +48,13 @@ if (fs.existsSync(opts.config)) {
 const web3token = opts.token || configJSON.web3token;
 const port = configJSON.port || 5000;
 
+const app = express();
 const filesUploaded = {};
 
-const app = express();
-const upload = multer({ dest: 'tmp/' });
-
-if (opts.daemon) {
-  app.listen(port, () => {
-    logger.info(`Listening on port ${port}`);
-  });
-}
+const uploadApp = express();
 
 async function uploadFile(web3token2, fileName, uploadedBy) {
-  const filePath = `tmp/${fileName}`;
+  const filePath = `files/${fileName}`;
   if (!web3token2) {
     return logger.error('A token is needed. You can create one on https://web3.storage');
   }
@@ -62,13 +63,15 @@ async function uploadFile(web3token2, fileName, uploadedBy) {
   const file = await getFilesFromPath(filePath);
   const cid = await storage.put(file, { wrapWithDirectory: false });
   logger.info(`[ ${uploadedBy} ] Content added with CID: ${cid}`);
-  fs.unlink(filePath, (err) => {
-    if (err) throw err;
-    // if no error, file has been deleted successfully
-    logger.info(`File ${filePath} deleted!`);
-  });
+  if (fs.existsSync(filePath)) {
+    fs.unlink(filePath, (err) => {
+      if (err) throw err;
+      // if no error, file has been deleted successfully
+      logger.info(`File ${filePath} deleted!`);
+    });
+  }
   filesUploaded[fileName].cid = cid;
-  filesUploaded[fileName].progress = 'complete';
+  filesUploaded[fileName].progress = 'uploaded';
   return cid;
 }
 
@@ -76,27 +79,52 @@ app.get('/', (req, res) => {
   res.send({ version, app: 'dtube-web3storage-uploader' });
 });
 
-app.post('/uploadVideo', upload.single('video'), (req, res) => {
-  const { file } = req;
-  if (typeof file !== 'undefined') {
-    const fileName = file.filename;
-    filesUploaded[fileName] = {};
-    filesUploaded[fileName].progress = 'incomplete';
-    filesUploaded[fileName].status = 'ok';
-    uploadFile(web3token, fileName, req.headers['x-forwarded-for']);
-    res.send({ status: 'ok', token: fileName });
-  } else {
-    res.send({ status: 'error', error: 'file parameter not specified!' });
-  }
-});
-
 app.get('/progress/:token', (req, res) => {
-  if (filesUploaded[req.params.token] !== null) {
-    res.send(filesUploaded[req.params.token]);
-    if (filesUploaded[req.params.token].progress === 'complete') {
+  const { token } = req.params;
+  if (typeof filesUploaded[req.params.token] !== 'undefined' && filesUploaded[req.params.token].progress !== null) {
+    if (filesUploaded[req.params.token].progress === 'received') {
+      uploadFile(web3token, token, req.headers['x-forwarded-for']);
+      filesUploaded[req.params.token].progress = 'uploading';
+      res.send(filesUploaded[req.params.token]);
+    } else if (filesUploaded[req.params.token].progress === 'uploaded') {
+      const tmp = filesUploaded[req.params.token];
       delete filesUploaded[req.params.token];
+      res.send(tmp);
+    } else {
+      res.send(filesUploaded[req.params.token]);
     }
   } else {
     res.send({ status: 'error', error: 'Token not found.' });
   }
 });
+
+server.on(EVENTS.EVENT_UPLOAD_COMPLETE, (event) => {
+  logger.info(`Receive complete for file ${event.file.id}`);
+  filesUploaded[event.file.id] = {};
+  filesUploaded[event.file.id].progress = 'received';
+});
+
+server.on(EVENTS.EVENT_ENDPOINT_CREATED, (event) => {
+  const id = event.url.substring(event.url.lastIndexOf('/') + 1);
+  logger.info(`Endpoint created with id ${id}`);
+  filesUploaded[id] = {};
+  filesUploaded[id].progress = 'waiting';
+});
+
+server.on(EVENTS.EVENT_FILE_CREATED, (event) => {
+  filesUploaded[event.file.id] = {};
+  filesUploaded[event.file.id].progress = 'receiving';
+});
+
+uploadApp.all('*', server.handle.bind(server));
+
+app.use('/upload', uploadApp);
+
+if (opts.daemon) {
+  app.listen(port, () => {
+    logger.info(`Listening on port ${port}`);
+  });
+  uploadApp.listen(1080, () => {
+    logger.info('TUS listening on port 1080');
+  });
+}
