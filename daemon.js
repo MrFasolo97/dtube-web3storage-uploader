@@ -65,7 +65,10 @@ async function uploadFile(web3token2, fileName, uploadedBy) {
   logger.info(`[ ${uploadedBy} ] Content added with CID: ${cid}`);
   if (fs.existsSync(filePath)) {
     fs.unlink(filePath, (err) => {
-      if (err) throw err;
+      if (err) {
+        logger.error(err.message);
+        return false;
+      }
       // if no error, file has been deleted successfully
       logger.info(`File ${filePath} deleted!`);
     });
@@ -81,6 +84,12 @@ app.get('/', (req, res) => {
 
 app.get('/progress/:token', (req, res) => {
   const { token } = req.params;
+  if (token.indexOf('\0') !== -1) {
+    res.statusCode(400);
+  }
+  if (!/^[a-z0-9]+$/.test(token)) {
+    res.statusCode(400);
+  }
   if (typeof filesUploaded[req.params.token] !== 'undefined' && filesUploaded[req.params.token].progress !== null) {
     if (filesUploaded[req.params.token].progress === 'received') {
       uploadFile(web3token, token, req.headers['x-forwarded-for']);
