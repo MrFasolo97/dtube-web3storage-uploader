@@ -55,7 +55,7 @@ const filesUploaded = {};
 const uploadApp = express();
 
 async function uploadFile(web3token2, fileName, uploadedBy) {
-  const filePath = `files/${sanitize(fileName)}`;
+  const filePath = `files/${fileName}`;
   if (!web3token2) {
     return logger.error('A token is needed. You can create one on https://web3.storage');
   }
@@ -83,18 +83,18 @@ app.get('/', (req, res) => {
 });
 
 app.get('/progress/:token', (req, res) => {
-  const { token } = req.params;
-  if (typeof filesUploaded[req.params.token] !== 'undefined' && filesUploaded[req.params.token].progress !== null) {
-    if (filesUploaded[req.params.token].progress === 'received') {
+  const token = sanitize(req.params.token);
+  if (typeof filesUploaded[token] !== 'undefined' && filesUploaded[token].progress !== null) {
+    if (filesUploaded[token].progress === 'received') {
       uploadFile(web3token, token, req.headers['x-forwarded-for']);
-      filesUploaded[req.params.token].progress = 'uploading';
-      res.send(filesUploaded[req.params.token]);
-    } else if (filesUploaded[req.params.token].progress === 'uploaded') {
-      const tmp = filesUploaded[req.params.token];
-      delete filesUploaded[req.params.token];
+      filesUploaded[token].progress = 'uploading';
+      res.send(filesUploaded[token]);
+    } else if (filesUploaded[token].progress === 'uploaded') {
+      const tmp = filesUploaded[token];
+      delete filesUploaded[token];
       res.send(tmp);
     } else {
-      res.send(filesUploaded[req.params.token]);
+      res.send(filesUploaded[token]);
     }
   } else {
     res.send({ status: 'error', error: 'Token not found.' });
