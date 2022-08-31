@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import version from 'project-version';
 import log4js from 'log4js';
 import tus from 'tus-node-server';
+import sanitize from 'sanitize-filename';
 
 const { EVENTS } = tus;
 
@@ -54,7 +55,7 @@ const filesUploaded = {};
 const uploadApp = express();
 
 async function uploadFile(web3token2, fileName, uploadedBy) {
-  const filePath = `files/${fileName}`;
+  const filePath = `files/${sanitize(fileName)}`;
   if (!web3token2) {
     return logger.error('A token is needed. You can create one on https://web3.storage');
   }
@@ -83,12 +84,6 @@ app.get('/', (req, res) => {
 
 app.get('/progress/:token', (req, res) => {
   const { token } = req.params;
-  if (token.indexOf('\0') !== -1) {
-    res.statusCode(400);
-  }
-  if (!/^[a-z0-9]+$/.test(token)) {
-    res.statusCode(400);
-  }
   if (typeof filesUploaded[req.params.token] !== 'undefined' && filesUploaded[req.params.token].progress !== null) {
     if (filesUploaded[req.params.token].progress === 'received') {
       uploadFile(web3token, token, req.headers['x-forwarded-for']);
