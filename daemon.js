@@ -67,7 +67,6 @@ async function uploadFile(web3token2, fileName, uploadedBy) {
     fs.unlink(filePath, (err) => {
       if (err) {
         logger.error(err.message);
-        return false;
       }
       // if no error, file has been deleted successfully
       logger.info(`File ${filePath} deleted!`);
@@ -109,19 +108,16 @@ app.get('/progress/:token', (req, res) => {
 
 server.on(EVENTS.EVENT_UPLOAD_COMPLETE, (event) => {
   logger.info(`Receive complete for file ${event.file.id}`);
-  filesUploaded[event.file.id] = {};
   filesUploaded[event.file.id].progress = 'received';
 });
 
 server.on(EVENTS.EVENT_ENDPOINT_CREATED, (event) => {
   const id = event.url.substring(event.url.lastIndexOf('/') + 1);
   logger.info(`Endpoint created with id ${id}`);
-  filesUploaded[id] = {};
-  filesUploaded[id].progress = 'waiting';
 });
 
 server.on(EVENTS.EVENT_FILE_CREATED, (event) => {
-  filesUploaded[event.file.id] = {};
+  filesUploaded[event.file.id] = new Map();
   filesUploaded[event.file.id].progress = 'receiving';
 });
 
