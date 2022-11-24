@@ -3,10 +3,10 @@
   "version": "0.2.0",
   "private": false,
   "description": "",
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "daemon": "node daemon -d"
+    "daemon": "node daemon.mjs -d"
   },
   "bun": {
     "child_process": false
@@ -19,6 +19,8 @@
     "pathlib": "^0.1.2",
     "project-version": "^2.0.0",
     "sanitize-filename": "^1.6.3",
+    "secp256k1": "^4.0.3",
+    "trim-off-newlines": "^1.0.3",
     "tus-node-server": "^0.7.1",
     "web3.storage": "^4.3.0"
   },
