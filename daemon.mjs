@@ -7,7 +7,7 @@ import log4js from 'log4js';
 import sanitize from 'sanitize-filename';
 import tus from 'tus-node-server';
 import version from 'project-version';
-import { javalon } from './javalon.js';
+import javalon from './javalon.js';
 
 let configJSON = {};
 const { EVENTS } = tus;
