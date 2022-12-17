@@ -11,13 +11,12 @@ import { javalon } from './javalon.js';
 
 let configJSON = {};
 const { EVENTS } = tus;
-const tusServer = new tus.Server({path: '/files'});
+const tusServer = new tus.Server({ path: '/files' });
 let filesUploaded = {};
 
 tusServer.datastore = new tus.FileStore({
-  path: '/files'
+  path: '/files',
 });
-
 
 log4js.configure({
   appenders: {
@@ -65,23 +64,23 @@ async function uploadFile(web3token2, fileName, uploadedBy) {
 
 tusServer.on(EVENTS.EVENT_UPLOAD_COMPLETE, async (event) => {
   logger.info(`Receive complete for file ${event.file.id}`);
-  let username = Buffer.from(await event.file.upload_metadata.split('username ').pop().split(',')[0], 'base64').toString('ascii');
+  const username = Buffer.from(await event.file.upload_metadata.split('username ').pop().split(',')[0], 'base64').toString('ascii');
   let signature = Buffer.from(await event.file.upload_metadata.split('signature ').pop().split(',')[0], 'base64').toString('ascii');
-  signature = JSON.parse(signature)
+  signature = JSON.parse(signature);
   if (javalon.signVerify(signature, username, 60 * 60 * 1000)) {
     filesUploaded[event.file.id].progress = 'uploading';
-    uploadFile(web3token, sanitize(event.file.id), username)
+    uploadFile(web3token, sanitize(event.file.id), username);
   }
 });
-  
+
 tusServer.on(EVENTS.EVENT_ENDPOINT_CREATED, async (event) => {
   const id = await event.url.substring(event.url.lastIndexOf('/') + 1);
   filesUploaded[id].progress = 'waiting';
   logger.info(`Endpoint created with id ${id}`);
 });
-  
+
 tusServer.on(EVENTS.EVENT_FILE_CREATED, async (event) => {
-  const id = event.file.id;
+  const { id } = event.file;
   filesUploaded[event.file.id] = new Map();
   logger.info(`File created with id ${id}`);
   filesUploaded[event.file.id].progress = 'receiving';
@@ -105,24 +104,27 @@ const app = express();
 function authenticateRequest(req, res, next) {
   return new Promise((resolve, reject) => {
     if (['POST', 'PATCH', 'GET'].includes(req.method) && typeof req.headers['username'] !== 'undefined' && typeof req.headers['ts'] !== 'undefined' && typeof req.headers['signature'] !== 'undefined' && typeof req.headers['pubkey'] !== 'undefined') {
-      let signature = JSON.parse(req.headers['signature']);
+      const signature = JSON.parse(req.headers['signature']);
       if (signature['ts'] > (Date.now() - 60000)) {
-        let prom = javalon.signVerify(signature, req.headers['username'], 60000)
+        const prom = javalon.signVerify(signature, req.headers['username'], 60000);
         if (!prom) {
           logger.debug('Invalid signature');
           res.send({ status: 'error', error: 'Invalid signature!' });
         } else {
           logger.debug('Got correct signature.');
-          if (typeof next === 'function')
-            next(req, res);
-          else
-            resolve(true);
+          if (typeof next === 'function') next(req, res);
+          else resolve(true);
         }
       } else if (typeof signature['ts'] === 'number') {
         res.send({ status: 'error', error: 'Timestamp expired.' });
         reject(new Error('Authentication not valid'));
       } else {
-        res.send({ status: 'error', error: 'Invalid timestamp.', type: typeof signature['ts'], value: signature['ts'] });
+        res.send({
+          status: 'error',
+          error: 'Invalid timestamp.',
+          type: typeof signature['ts'],
+          value: signature['ts'],
+        });
         reject(new Error('Authentication not valid'));
       }
     } else if (typeof req.headers['username'] === 'undefined' && ['POST', 'PATCH'].includes(req.method)) {
@@ -158,15 +160,12 @@ app.get('/progress/:token', (req, res) => {
 
 const uploadApp = express();
 const uploadRouter = express.Router();
-uploadRouter.all('*', (req, res) => authenticateRequest(req, res).then(() => tusServer.handle(req, res)).catch((reason) =>
-  {
-    logger.warn(reason);
-  })
-);
+uploadRouter.all('*', (req, res) => authenticateRequest(req, res).then(() => tusServer.handle(req, res)).catch((reason) => {
+  logger.warn(reason);
+}));
 app.use('/upload', uploadRouter);
 
-
-app.all('/', (req, res) => authenticateRequest(req, res).then(() => res.send({ version, app: 'dtube-web3storage-uploader' })).catch(() => {res.send({status: 'error', error: 'authentication not valid'})}));
+app.all('/', (req, res) => authenticateRequest(req, res).then(() => res.send({ version, app: 'dtube-web3storage-uploader' })).catch(() => { res.send({ status: 'error', error: 'authentication not valid' }); }));
 
 if (opts.daemon) {
   app.listen(port, () => {
