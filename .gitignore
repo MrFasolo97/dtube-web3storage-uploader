@@ -1,8 +1,11 @@
+# Project specific
 files/*
 config.json
-node_modules.bun
-bun.lockb
-node_modules
 logs/*
 javalon.js
 test.txt
+
+# Generic
+node_modules.bun
+bun.lockb
+node_modules
