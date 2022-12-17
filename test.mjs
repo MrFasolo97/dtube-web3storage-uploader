@@ -4,8 +4,8 @@ import trimOffNewlines from 'trim-off-newlines';
 import { readFileSync } from 'fs';
 import tus from 'tus-js-client';
 import * as fs from 'fs';
-import javalon from './javalon.js';
 import CryptoJS from 'crypto-js';
+import javalon from './javalon.js';
 
 let configJSON = null;
 const config = 'config.json';
@@ -60,10 +60,10 @@ function post() {
   // Get the selected file from the input element
   const file = readFileSync(testFile);
   // Create a new tus upload
-  const ts = Date.now();
+  let hash;
   fs.readFile(testFile, "utf8", (err, data) => {
     if (!err) {
-      CryptoJS.SHA256(data);
+      hash = CryptoJS.SHA256(data);
     }
   });
   const upload = new tus.Upload(file, {
@@ -78,7 +78,7 @@ function post() {
       filetype: file.type,
       username: username,
       pubkey: pubkey,
-      signature: JSON.stringify(javalon.signData(privkey, pubkey, CryptoJS.SHA256(), username)),
+      signature: JSON.stringify(javalon.signData(privkey, pubkey, hash, username)),
     },
     // Callback for errors which cannot be fixed using retries
     onError(error) {
