@@ -4,7 +4,7 @@ import trimOffNewlines from 'trim-off-newlines';
 import { readFileSync } from 'fs';
 import tus from 'tus-js-client';
 import * as fs from 'fs';
-import { javalon } from './javalon.js';
+import javalon from './javalon.js';
 
 function sleep(ms) {
   return new Promise((resolve) => {
