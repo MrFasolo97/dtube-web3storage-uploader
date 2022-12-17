@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
 import tus from 'tus-js-client';
 import * as fs from 'fs';
 import javalon from './javalon.js';
+import CryptoJS from 'crypto-js';
 
 let configJSON = null;
 const config = 'config.json';
@@ -60,6 +61,11 @@ function post() {
   const file = readFileSync(testFile);
   // Create a new tus upload
   const ts = Date.now();
+  fs.readFile(testFile, "utf8", (err, data) => {
+    if (!err) {
+      CryptoJS.SHA256(data);
+    }
+  });
   const upload = new tus.Upload(file, {
     // Endpoint is the upload creation URL from your tus server
     endpoint: endpoint,
@@ -72,7 +78,7 @@ function post() {
       filetype: file.type,
       username: username,
       pubkey: pubkey,
-      signature: JSON.stringify(javalon.signData(privkey, pubkey, `${username}_${ts}`, username)),
+      signature: JSON.stringify(javalon.signData(privkey, pubkey, CryptoJS.SHA256(), username)),
     },
     // Callback for errors which cannot be fixed using retries
     onError(error) {

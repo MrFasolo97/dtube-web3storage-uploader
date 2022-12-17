@@ -105,16 +105,16 @@ function authenticateRequest(req, res, next) {
   return new Promise((resolve, reject) => {
     if (['POST', 'PATCH', 'GET'].includes(req.method) && typeof req.headers['username'] !== 'undefined' && typeof req.headers['ts'] !== 'undefined' && typeof req.headers['signature'] !== 'undefined' && typeof req.headers['pubkey'] !== 'undefined') {
       const signature = JSON.parse(req.headers['signature']);
-      if (signature['ts'] > (Date.now() - 60000)) {
-        const prom = javalon.signVerify(signature, req.headers['username'], 60000);
-        if (!prom) {
-          logger.debug('Invalid signature');
-          res.send({ status: 'error', error: 'Invalid signature!' });
-        } else {
+      if (signature['ts'] > (Date.now() - 3600000)) {
+        javalon.signVerify(signature, req.headers['username'], 3600000).then(() => {
           logger.debug('Got correct signature.');
           if (typeof next === 'function') next(req, res);
           else resolve(true);
-        }
+        }).catch((reason) => {
+          logger.debug('Invalid signature');
+          res.send({ status: 'error', error: 'Invalid signature!' });
+          reject(new Error(reason));
+        });
       } else if (typeof signature['ts'] === 'number') {
         res.send({ status: 'error', error: 'Timestamp expired.' });
         reject(new Error('Authentication not valid'));
