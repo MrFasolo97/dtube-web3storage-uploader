@@ -1,3 +1,3 @@
 #!/bin/bash
-PATH=$PATH:/home/$(whoami)/.bun/bin
+PATH=$PATH:$HOME/.bun/bin
 bun run daemon

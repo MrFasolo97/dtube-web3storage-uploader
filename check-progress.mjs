@@ -30,14 +30,14 @@ const privKey = opts.privkey;
 const pubKey = javalon.privToPub(opts.privkey);
 
 if (opts.id !== null) {
-  let ts = Date.now();
-  await axios.get(`https://dtube.fso.ovh:5082/progress/${opts.id}`, {
+  const ts = Date.now();
+  await axios.get(`https://upload.dtube.fso.ovh:5081/progress/${opts.id}`, {
     headers: {
       apikey: apiKey,
       username: username,
       pubkey: pubKey,
       signature: JSON.stringify(javalon.signData(privKey, pubKey, `${username}_${ts}`, username)),
-      ts: ts,
+      ts,
     },
   }).then((res) => {
     console.log(res.data);

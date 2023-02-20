@@ -7,42 +7,29 @@ import * as fs from 'fs';
 import CryptoJS from 'crypto-js';
 import javalon from './javalon.js';
 
-let configJSON = null;
-const config = 'config.json';
-
-if (fs.existsSync(config)) {
-  configJSON = JSON.parse(fs.readFileSync(config));
-} else {
-  console.log('Config file not found!');
-  process.exit();
-}
-
 let username;
 let pubkey;
 let privkey;
-let testFile = 'test.m4v';
-const { apiKey } = configJSON;
+const testFile = 'test.m4v';
 const proto = 'https';
-const domain = 'dtube.fso.ovh';
-const port = '5082';
+const domain = 'upload.dtube.fso.ovh';
+const port = '5081';
 const endpoint = `${proto}://${domain}:${port}/upload`;
 
 let headers = {
-  apikey: apiKey,
   username: username,
   pubkey: pubkey,
   ts: 0,
   signature: null,
-}
+};
 
 function freshenHeaders() {
-  let ts = Date.now();
+  const ts = Date.now();
   headers = {
-    apikey: apiKey,
     username: username,
     pubkey: pubkey,
     ts: ts,
-    signature: JSON.stringify(javalon.signData(privkey, pubkey, `${username}_${ts}`, username)),
+    signature: Buffer.from(JSON.stringify(javalon.signData(privkey, pubkey, `${username}_${ts}`, ts, username)), 'utf8').toString('base64'),
   };
 }
 
@@ -57,28 +44,29 @@ console.log(`Testing with ${(await fileTypeFromFile(`./${testFile}`)).mime} file
 let uploading = false;
 
 function post() {
+  console.log('Uploading...');
   // Get the selected file from the input element
   const file = readFileSync(testFile);
   // Create a new tus upload
   let hash;
-  fs.readFile(testFile, "utf8", (err, data) => {
+  fs.readFile(testFile, 'utf8', (err, data) => {
     if (!err) {
       hash = CryptoJS.SHA256(data);
     }
   });
+  freshenHeaders();
   const upload = new tus.Upload(file, {
     // Endpoint is the upload creation URL from your tus server
-    endpoint: endpoint,
+    endpoint,
     // Retry delays will enable tus-js-client to automatically retry on errors
     retryDelays: [0, 3000, 5000],
     // Attach additional meta data about the file for the server
-    headers: headers,
+    headers,
     metadata: {
       filename: testFile,
       filetype: file.type,
       username: username,
       pubkey: pubkey,
-      signature: JSON.stringify(javalon.signData(privkey, pubkey, hash, username)),
     },
     // Callback for errors which cannot be fixed using retries
     onError(error) {
@@ -86,7 +74,6 @@ function post() {
     },
     // Callback for reporting upload progress
     onProgress(bytesUploaded, bytesTotal) {
-      freshenHeaders();
       const percentage = ((bytesUploaded / bytesTotal) * 100).toFixed(2);
       console.log(bytesUploaded, bytesTotal, `${percentage}%`);
     },
@@ -103,8 +90,9 @@ function post() {
       console.log(previousUploads);
       upload.resumeFromPreviousUpload(previousUploads[0]);
     }
-    // Start the upload
     upload.start();
+  }).catch((reason) => {
+    console.log(reason);
   });
 }
 

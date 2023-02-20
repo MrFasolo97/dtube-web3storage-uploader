@@ -4,6 +4,9 @@ config.json
 logs/*
 javalon.js
 test.txt
+test.m4v
+certs/*
+certs
 
 # Generic
 node_modules.bun

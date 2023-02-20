@@ -1,22 +1,32 @@
 import process, { exit } from 'process';
 import { Command } from 'commander';
-import { Web3Storage, getFilesFromPath } from 'web3.storage';
+import https from 'https';
+import mime from 'mime';
 import express from 'express';
 import * as fs from 'fs';
 import log4js from 'log4js';
 import sanitize from 'sanitize-filename';
 import tus from 'tus-node-server';
 import version from 'project-version';
+import tusMetadata from 'tus-metadata';
 import javalon from './javalon.js';
 
 let configJSON = {};
 const { EVENTS } = tus;
-const tusServer = new tus.Server({ path: '/files' });
-let filesUploaded = {};
+const tusServer = new tus.Server(
+  {
+    path: '/',
+  },
+);
 
 tusServer.datastore = new tus.FileStore({
-  path: '/files',
+  path: '/download',
+  directory: './files',
 });
+
+const filesUploaded = {};
+
+const LOG_LEVEL = 'debug';
 
 log4js.configure({
   appenders: {
@@ -32,45 +42,45 @@ log4js.configure({
 
 const program = new Command();
 program
-  .option('-t, --token <token>', 'API Token')
   .option('-d, --daemon', 'Run as daemon', false)
   .option('-c, --config <file>', 'Config file', './config.json');
 
 const logger = log4js.getLogger();
+logger.level = LOG_LEVEL;
 
-async function uploadFile(web3token2, fileName, uploadedBy) {
-  const filePath = `files/${fileName}`;
-  if (!web3token2) {
-    return logger.error('A token is needed. You can create one on https://web3.storage');
+program.parse(process.argv);
+const opts = program.opts();
+
+if (fs.existsSync(opts.config)) {
+  configJSON = JSON.parse(fs.readFileSync(opts.config));
+  if (configJSON.storage_provider == null) {
+    logger.fatal('Storage provider must be set!');
+    exit();
   }
-  logger.info(`[ ${uploadedBy} ] ${filePath}`);
-  const storage = new Web3Storage({ token: web3token2 });
-  const file = await getFilesFromPath(filePath);
-  const cid = await storage.put(file, { wrapWithDirectory: false });
-  logger.info(`[ ${uploadedBy} ] Content added with CID: ${cid}`);
-  if (fs.existsSync(filePath)) {
-    fs.unlink(filePath, (err) => {
-      if (err) {
-        logger.error(err.message);
-      }
-      // if no error, file has been deleted successfully
-      logger.info(`File ${filePath} deleted!`);
-    });
-  }
+} else {
+  logger.fatal('Config file not found!');
+  exit();
+}
+
+const port = configJSON.port || 5000;
+
+const { default: storageStore } = await import(`./storage_providers/${configJSON.storage_provider}.mjs`);
+
+// Takes 3 parameters:
+// a config Object, file's name as string and string defining the original uploader.
+async function uploadFile(configJSONRef, fileName, uploadedBy) {
+  const cid = await storageStore(configJSONRef, logger, fileName, uploadedBy);
   filesUploaded[fileName].cid = cid;
   filesUploaded[fileName].progress = 'uploaded';
   return cid;
 }
+// returns IPFS cid
 
 tusServer.on(EVENTS.EVENT_UPLOAD_COMPLETE, async (event) => {
   logger.info(`Receive complete for file ${event.file.id}`);
-  const username = Buffer.from(await event.file.upload_metadata.split('username ').pop().split(',')[0], 'base64').toString('ascii');
-  let signature = Buffer.from(await event.file.upload_metadata.split('signature ').pop().split(',')[0], 'base64').toString('ascii');
-  signature = JSON.parse(signature);
-  if (javalon.signVerify(signature, username, 60 * 60 * 1000)) {
-    filesUploaded[event.file.id].progress = 'uploading';
-    uploadFile(web3token, sanitize(event.file.id), username);
-  }
+  const uploadMetadata = tusMetadata.decode(event.file.upload_metadata);
+  filesUploaded[event.file.id].progress = 'uploading';
+  await uploadFile(configJSON, sanitize(event.file.id), uploadMetadata.username);
 });
 
 tusServer.on(EVENTS.EVENT_ENDPOINT_CREATED, async (event) => {
@@ -86,60 +96,72 @@ tusServer.on(EVENTS.EVENT_FILE_CREATED, async (event) => {
   filesUploaded[event.file.id].progress = 'receiving';
 });
 
-program.parse(process.argv);
-const opts = program.opts();
+// const app = express();
+async function authenticateRequest(req, res, next) {
+  let signature = Buffer.from(`${req.headers.signature}`, 'base64url').toString('utf8');
 
-if (fs.existsSync(opts.config)) {
-  configJSON = JSON.parse(fs.readFileSync(opts.config));
-} else {
-  logger.fatal('Config file not found!');
-  exit();
-}
-
-const web3token = opts.token || configJSON.web3token;
-const port = configJSON.port || 5000;
-
-const app = express();
-
-function authenticateRequest(req, res, next) {
-  return new Promise((resolve, reject) => {
-    if (['POST', 'PATCH', 'GET'].includes(req.method) && typeof req.headers['username'] !== 'undefined' && typeof req.headers['ts'] !== 'undefined' && typeof req.headers['signature'] !== 'undefined' && typeof req.headers['pubkey'] !== 'undefined') {
-      const signature = JSON.parse(req.headers['signature']);
-      if (signature['ts'] > (Date.now() - 3600000)) {
-        javalon.signVerify(signature, req.headers['username'], 3600000).then(() => {
-          logger.debug('Got correct signature.');
-          if (typeof next === 'function') next(req, res);
-          else resolve(true);
-        }).catch((reason) => {
-          logger.debug('Invalid signature');
-          res.send({ status: 'error', error: 'Invalid signature!' });
-          reject(new Error(reason));
-        });
-      } else if (typeof signature['ts'] === 'number') {
-        res.send({ status: 'error', error: 'Timestamp expired.' });
-        reject(new Error('Authentication not valid'));
-      } else {
-        res.send({
-          status: 'error',
-          error: 'Invalid timestamp.',
-          type: typeof signature['ts'],
-          value: signature['ts'],
-        });
-        reject(new Error('Authentication not valid'));
-      }
-    } else if (typeof req.headers['username'] === 'undefined' && ['POST', 'PATCH'].includes(req.method)) {
-      res.send({ status: 'error', error: 'Username not specified!' });
-      reject(new Error('Authentication not valid'));
-    } else if (req.method === 'GET') {
-      res.send({ version, app: 'dtube-web3storage-uploader' });
-      resolve(true);
-    } else {
-      reject(new Error('Authentication not valid'));
+  if (typeof signature === 'string') {
+    try {
+      signature = await JSON.parse(signature);
+    } catch (e) {
+      logger.warn(e);
     }
-  });
+  } else {
+    logger.warn(`Type of signature= ${typeof signature}`);
+  }
+  // let signature = req.headers.signature;
+  let r;
+  logger.debug(signature);
+  if (['POST', 'PATCH', 'GET', 'HEAD'].includes(req.method) && typeof signature.username !== 'undefined' && typeof signature.ts !== 'undefined' && typeof req.headers.signature !== 'undefined' && typeof signature.pubkey !== 'undefined') {
+    const { ts } = signature;
+    if (ts > (Date.now() - 3600000)) {
+      try {
+        r = javalon.signVerify(signature, signature.username, 3600000);
+        logger.debug('Got correct signature.');
+        if (typeof next === 'function') next(req, res);
+        else r = true;
+      } catch (reason) {
+        logger.debug('Invalid signature');
+        logger.debug(reason);
+        res.send({ status: 'error', error: 'Invalid signature!' });
+      }
+    } else if (typeof ts === 'number') {
+      res.send({ status: 'error', error: 'Timestamp expired.' });
+      logger.debug('Authentication not valid, timestamp expired!');
+    } else if (typeof ts !== 'number') {
+      res.send({
+        status: 'error',
+        error: 'Invalid timestamp.',
+        type: typeof ts,
+        value: signature.ts,
+      });
+      logger.debug(typeof ts);
+    } else {
+      logger.debug('Authentication not valid, unknown error!');
+    }
+  } else if (typeof signature.username === 'undefined' && ['POST', 'PATCH', 'HEAD'].includes(req.method)) {
+    logger.debug('Username not specified!');
+    res.send({ status: 'error', error: 'Username not specified!' });
+  } else if (req.method === 'GET' && typeof signature.username === 'undefined') {
+    // logger.info('Got appInfo request...');
+    // res.send({ version, app: 'dtube-web3storage-uploader' });
+    // r = true;
+  } else {
+    logger.warn('Auth not valid!');
+    logger.warn(`Req method: ${req.method}`);
+    logger.warn(`Req headers: ${req.headers.toString()}`);
+  }
+  return r;
 }
 
-app.get('/progress/:token', (req, res) => {
+const uploadApp = express();
+const authApp = express();
+
+uploadApp.all('*', (req, res) => tusServer.handle(req, res).catch((reason) => {
+  logger.warn(reason);
+}));
+
+authApp.get('/progress/:token', (req, res) => {
   const { token } = req.params;
   logger.debug(token);
   if (typeof filesUploaded[token] !== 'undefined' && filesUploaded[token].progress !== null) {
@@ -158,20 +180,47 @@ app.get('/progress/:token', (req, res) => {
   }
 });
 
-const uploadApp = express();
-const uploadRouter = express.Router();
-uploadRouter.all('*', (req, res) => authenticateRequest(req, res).then(() => tusServer.handle(req, res)).catch((reason) => {
-  logger.warn(reason);
-}));
-app.use('/upload', uploadRouter);
+authApp.get('/version', (req, res) => res.send({ version, app: 'dtube-web3storage-uploader' }).catch((reason) => logger.warn(reason)));
 
-app.all('/', (req, res) => authenticateRequest(req, res).then(() => res.send({ version, app: 'dtube-web3storage-uploader' })).catch(() => { res.send({ status: 'error', error: 'authentication not valid' }); }));
+const authUpload = (req, res) => {
+  if (authenticateRequest(req, res) || true) { // bypass authentication, as it is not complete rn.
+    uploadApp(req, res);
+  } else {
+    logger.debug('Request not authed!');
+  }
+};
+
+authApp.get('/upload', authUpload);
+authApp.post('/upload', authUpload);
+authApp.head('/upload', authUpload);
+authApp.patch('/upload', authUpload);
+
+authApp.get('/download/:filename', (req, res) => {
+  const { filename } = req.params;
+  logger.debug(filename);
+  if (fs.existsSync(`./files/${filename}`)) {
+    const mimetype = mime.lookup(`./files/${filename}`);
+    logger.debug(filename);
+    res.setHeader('Content-disposition', `attachment; filename=${filename}`);
+    res.setHeader('Content-type', mimetype);
+    logger.debug(mimetype);
+    const fileContent = fs.readFileSync(`./files/${filename}`);
+    res.send(fileContent);
+  } else {
+    logger.debug(`${filename} not found!`);
+    res.status(404).send('File not found');
+  }
+});
 
 if (opts.daemon) {
-  app.listen(port, () => {
-    logger.info(`Listening on port ${port}`);
-  });
-  uploadApp.listen(1082, () => {
-    logger.info('TUS listening on port 1082');
-  });
+  https.createServer(
+    // Provide the private and public key to the server by reading each
+    // file's content with the readFileSync() method.
+    {
+      key: fs.readFileSync(`${configJSON.cert_directory}/privkey.pem`),
+      cert: fs.readFileSync(`${configJSON.cert_directory}/cert.pem`),
+      ca: fs.readFileSync('./certs/3334561879.crt'),
+    },
+    authApp,
+  ).listen(port, '0.0.0.0', () => { logger.info(`TUS Auth listening on port ${port}`); });
 }
