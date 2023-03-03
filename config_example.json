@@ -4,5 +4,5 @@
     "storage_providers": ["estuary"],
     "ESTUARY_BEARER": "",
     "ESTUARY_COLLECTION_UUID": "",
-    "cert_directory": "/etc/letsencrypt/live/upload.example.com",
+    "cert_directory": "/etc/letsencrypt/live/upload.example.com"
 }
