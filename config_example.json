@@ -1,5 +1,8 @@
 {
-    "web3token": "HERE_WEB3STORAGE_AUTH_TOKEN",
     "apiKey": "HERE_WEBSERVER_API_KEY",
-    "port": 5000
+    "port": 5000,
+    "storage_providers": ["estuary"],
+    "ESTUARY_BEARER": "",
+    "ESTUARY_COLLECTION_UUID": "",
+    "cert_directory": "/etc/letsencrypt/live/upload.example.com",
 }
