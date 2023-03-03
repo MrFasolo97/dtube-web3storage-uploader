@@ -1,19 +1,17 @@
-import { fileTypeFromFile } from 'file-type';
 import readline from 'readline';
 import trimOffNewlines from 'trim-off-newlines';
 import { readFileSync } from 'fs';
 import tus from 'tus-js-client';
-import * as fs from 'fs';
-import CryptoJS from 'crypto-js';
+import mime from 'mime';
 import javalon from './javalon.js';
 
 let username;
 let pubkey;
 let privkey;
-const testFile = 'test.m4v';
+const testFile = 'test.txt';
 const proto = 'https';
 const domain = 'upload.dtube.fso.ovh';
-const port = '5081';
+const port = '5082';
 const endpoint = `${proto}://${domain}:${port}/upload`;
 
 let headers = {
@@ -39,7 +37,7 @@ const rl = readline.createInterface({
   terminal: false,
 });
 
-console.log(`Testing with ${(await fileTypeFromFile(`./${testFile}`)).mime} file`);
+console.log(`Testing with ${(mime.getType(`./${testFile}`))} file`);
 
 let uploading = false;
 
@@ -48,12 +46,6 @@ function post() {
   // Get the selected file from the input element
   const file = readFileSync(testFile);
   // Create a new tus upload
-  let hash;
-  fs.readFile(testFile, 'utf8', (err, data) => {
-    if (!err) {
-      hash = CryptoJS.SHA256(data);
-    }
-  });
   freshenHeaders();
   const upload = new tus.Upload(file, {
     // Endpoint is the upload creation URL from your tus server
