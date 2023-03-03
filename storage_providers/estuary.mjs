@@ -1,30 +1,48 @@
-import EstuaryClient from 'estuary-client';
+import FormData from 'form-data';
+import fs from 'fs';
+import axios from 'axios';
+import path from 'path';
 
-export default async function store(configJSON, logger, fileName, uploadedBy) {
-  const defaultClient = EstuaryClient.ApiClient.instance;
-  const filePath = `./files/${fileName}`;
-  // Configure API key authorization: bearerAuth
-  await defaultClient;
-  const bearerAuth = defaultClient.authentications['bearerAuth'];
-  bearerAuth.apiKey = configJSON.ESTUARY_BEARER;
-  // Uncomment the following line to set a prefix for the API key, e.g. "Token" (defaults to null)
-  bearerAuth.apiKeyPrefix = 'Bearer';
-  let cid = '';
-  const apiInstance = new EstuaryClient.ContentApi();
-  const opts = {
-    coluuid: 'dtube_videos',
-    location: `${configJSON.upload_endpoint_root}download/${fileName}`,
-    filename: fileName,
-    replication: 5,
-  };
-  logger.info(`[ ${uploadedBy} ] ${filePath}`);
-  await apiInstance.contentAddPost(filePath, opts, (error, estuaryData, response) => {
-    if (error) {
-      logger.error(error);
-    } else {
-      logger.info(`API called successfully. Returned data: ${estuaryData}`);
-      cid = estuaryData.cid;
-    }
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
   });
-  return cid;
+}
+
+export default async function store(
+  configJSON,
+  logger,
+  fileName,
+  uploadedBy,
+  cb,
+  errorCount = 0,
+) {
+  const data = new FormData();
+  const filePath = path.resolve('files', fileName);
+  data.append('data', fs.createReadStream(filePath));
+  const config = {
+    method: 'post',
+    url: `https://api.estuary.tech/content/add?coluuid=${configJSON.ESTUARY_COLLECTION_UUID}`,
+    headers: {
+      'Accept': 'application/json',
+      'Authorization': configJSON.ESTUARY_BEARER,
+      ...data.getHeaders(),
+    },
+    data: data,
+  };
+  logger.debug(`Try #${errorCount + 1}`);
+  if (errorCount < 5) {
+    await axios(config).then((response) => {
+      logger.debug(response.data.cid);
+      if (typeof cb === 'function') cb(response.data.cid);
+    }).catch((error) => {
+      // logger.error(error);
+      sleep(5000).then(() => {
+        store(configJSON, logger, fileName, uploadedBy, cb, errorCount + 1);
+      });
+    });
+  } else {
+    logger.error(`Estuary storage failed ${errorCount} times! We stopped trying.`);
+    return false;
+  }
 }
