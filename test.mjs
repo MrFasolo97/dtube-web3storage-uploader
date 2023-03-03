@@ -9,10 +9,10 @@ let username;
 let pubkey;
 let privkey;
 const testFile = 'test.txt';
-const proto = 'https';
+const proto = 'http';
 const domain = 'upload.dtube.fso.ovh';
-const port = '5082';
-const endpoint = `${proto}://${domain}:${port}/upload`;
+const uploadPort = '1080';
+const uploadEndpoint = `${proto}://${domain}:${uploadPort}/upload`;
 
 let headers = {
   username: username,
@@ -49,7 +49,7 @@ function post() {
   freshenHeaders();
   const upload = new tus.Upload(file, {
     // Endpoint is the upload creation URL from your tus server
-    endpoint,
+    endpoint: uploadEndpoint,
     // Retry delays will enable tus-js-client to automatically retry on errors
     retryDelays: [0, 3000, 5000],
     // Attach additional meta data about the file for the server
