@@ -97,7 +97,7 @@ const server = net.createServer();
 
 server.on('connection', (clientToProxySocket) => {
   logger.debug('Client connected to proxy');
-  let r;
+  let auth;
   clientToProxySocket.once('data', async (data) => {
     let needsAuth = true;
     let isTLSConnection = data.toString().indexOf('CONNECT') !== -1;
@@ -106,16 +106,20 @@ server.on('connection', (clientToProxySocket) => {
     const serverPort = 5083;
     // logger.debug(data.toString());
     logger.debug(serverAddress);
-    if ((typeof r === 'undefined' || r === false) && needsAuth) {
+    if ((typeof auth === 'undefined' || auth === false) && needsAuth) {
       try {
-        r = await authenticateRequest(data.toString().split('signature: ')[1].split('\r\n')[0]);
+        if (data.toString().indexOf('signature: ') !== -1) {
+          auth = await authenticateRequest(data.toString().split('signature: ')[1].split('\r\n')[0]);
+        } else {
+          auth = false;
+        }
       } catch (e) {
         logger.debug(e);
-        r = false;
+        auth = false;
       }
     }
-    if ((r !== false && needsAuth) || !needsAuth) {
-      logger.debug(r);
+    if ((auth !== false && needsAuth) || !needsAuth) {
+      logger.debug(auth);
       // Creating a connection from proxy to destination server
       let proxyToServerSocket = net.createConnection(
         {
@@ -148,11 +152,11 @@ server.on('connection', (clientToProxySocket) => {
       clientToProxySocket.on('error', (err) => {
         logger.error('Client to proxy error');
         logger.error(err);
-        r = undefined;
+        auth = undefined;
       });
       clientToProxySocket.on('close', () => {
         logger.info('Client closed connection');
-        r = undefined;
+        auth = undefined;
       });
     } else {
       clientToProxySocket.write('HTTP/1.1 401 Invalid Authentication\r\n\r\nInvalid Authentication\r\n\r\n');
