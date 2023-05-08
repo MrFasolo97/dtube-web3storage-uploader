@@ -9,7 +9,7 @@ function sleep(ms) {
   });
 }
 
-export default async function store(
+export default function store(
   configJSON,
   logger,
   fileName,
@@ -32,7 +32,7 @@ export default async function store(
   };
   logger.debug(`Try #${errorCount + 1}`);
   if (errorCount < 5) {
-    await axios(config).then((response) => {
+    axios(config).then((response) => {
       logger.debug(response.data.cid);
       if (typeof cb === 'function') cb(response.data.cid);
     }).catch((error) => {

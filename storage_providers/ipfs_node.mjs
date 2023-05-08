@@ -8,7 +8,7 @@ function sleep(ms) {
   });
 }
 
-export default async function store(
+export default function store(
   configJSON,
   logger,
   fileName,
@@ -22,9 +22,9 @@ export default async function store(
   logger.debug(`Try #${errorCount + 1}`);
   if (errorCount < 5) {
     try {
-      const file = await ipfs.add(fileStream);
+      const file = ipfs.add(fileStream);
       logger.debug(file.cid);
-      await ipfs.pin.add(file.cid);
+      ipfs.pin.add(file.cid);
       if (typeof cb === 'function') cb(file.cid);
     } catch (error) {
       // logger.error(error);

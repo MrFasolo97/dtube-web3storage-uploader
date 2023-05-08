@@ -139,7 +139,7 @@ if (opts.daemon) {
     if (req.headers['hook-name'] === 'post-finish') {
       logger.info(`Receive complete for file ${upload.ID}`);
       await saveUploadData(upload.ID, { progress: 'uploading' }, false).then(async () => {
-        await uploadFile(configJSON, upload.ID, upload.MetaData.username, (res2) => {
+        uploadFile(configJSON, upload.ID, upload.MetaData.username, (res2) => {
           if (res2 !== false) {
             let ret = {};
             if (typeof res2 === 'string') {
