@@ -63,7 +63,7 @@ loadStoragePlugins(configJSON);
 
 // Takes 3 parameters:
 // a config Object, file's name as string and string defining the original uploader.
-function uploadFile(configJSONRef, fileId, uploadedBy, cb, onComplete) {
+function uploadFile(configJSONRef, fileId, uploadedBy, cb) {
   let ret;
   const fileName = sanitize(fileId);
   logger.info(storageStore);
@@ -88,14 +88,6 @@ function uploadFile(configJSONRef, fileId, uploadedBy, cb, onComplete) {
   logger.info(ret);
   filesUploaded[fileId] = ret;
   logger.info(filesUploaded[fileId]);
-  fs.unlink(`./files/${fileName}`, (err) => {
-    if (err) {
-      logger.error(`Error deleting file ${fileName}!`);
-      logger.error(err);
-    } else {
-      logger.debug(`File ${fileName} deleted!`);
-    }
-  });
 }
 // returns IPFS cid(s) as string or JSON array.
 
@@ -139,24 +131,39 @@ if (opts.daemon) {
     if (req.headers['hook-name'] === 'post-finish') {
       logger.info(`Receive complete for file ${upload.ID}`);
       await saveUploadData(upload.ID, { progress: 'uploading' }, false).then(async () => {
-        uploadFile(configJSON, upload.ID, upload.MetaData.username, (res2) => {
-          if (res2 !== false) {
-            let ret = {};
-            if (typeof res2 === 'string') {
-              ret.cid = res2;
-              ret.progress = 'uploaded';
-            } else if (typeof res2 === 'object') {
-              if (res2.length === 1) {
-                ret.cid = res2[0];
+        Promise((resolve, reject) => {
+          uploadFile(configJSON, upload.ID, upload.MetaData.username, (res2) => {
+            if (res2 !== false) {
+              let ret = {};
+              if (typeof res2 === 'string') {
+                ret.cid = res2;
                 ret.progress = 'uploaded';
-              } else if (res2.length > 1) {
-                ret.cid = res2[randomInt(res2.length)];
-                ret.cid_list = res2;
-                ret.progress = 'uploaded';
+              } else if (typeof res2 === 'object') {
+                if (res2.length === 1) {
+                  ret.cid = res2[0];
+                  ret.progress = 'uploaded';
+                } else if (res2.length > 1) {
+                  ret.cid = res2[randomInt(res2.length)];
+                  ret.cid_list = res2;
+                  ret.progress = 'uploaded';
+                }
               }
+              resolve(ret);
+              saveUploadData(upload.ID, ret, false);
+            } else {
+              reject();
             }
-            saveUploadData(upload.ID, ret, false);
-          }
+          });
+        }).then(() => {
+          const fileName = sanitize(upload.ID);
+          fs.unlink(`./files/${fileName}`, (err) => {
+            if (err) {
+              logger.error(`Error deleting file ${fileName}!`);
+              logger.error(err);
+            } else {
+              logger.debug(`File ${fileName} deleted!`);
+            }
+          });
         });
       });
     } else if (req.headers['hook-name'] === 'post-create') {
