@@ -22,9 +22,11 @@ export default function store(
   if (errorCount < 5) {
     try {
       const file = ipfs.add(filePath);
-      logger.debug(file.cid);
-      ipfs.pin.add(file.cid);
-      if (typeof cb === 'function') cb(file.cid);
+      file.then((file) => {
+        logger.debug();
+        ipfs.pin.add(file.cid);
+        if (typeof cb === 'function') cb(file.cid);
+      });
     } catch (error) {
       // logger.error(error);
       sleep(5000).then(() => {
