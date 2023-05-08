@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import * as IPFS from 'ipfs-core';
+import * as IPFS from 'kubo-rpc-client';
 
 function sleep(ms) {
   return new Promise((resolve) => {
