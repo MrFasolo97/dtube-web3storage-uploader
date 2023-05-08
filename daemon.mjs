@@ -88,12 +88,12 @@ async function uploadFile(configJSONRef, fileId, uploadedBy, cb) {
   logger.info(ret);
   filesUploaded[fileId] = ret;
   logger.info(filesUploaded[fileId]);
-  fs.unlink(`./files/${upload.ID}`, (err) => {
+  fs.unlink(`./files/${fileName}`, (err) => {
     if (err) {
-      logger.error(`Error deleting file ${upload.ID}!`);
+      logger.error(`Error deleting file ${fileName}!`);
       logger.error(err);
     } else {
-      logger.debug(`File ${upload.ID} deleted!`);
+      logger.debug(`File ${fileName} deleted!`);
     }
   });
 }
