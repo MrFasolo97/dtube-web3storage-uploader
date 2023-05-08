@@ -21,7 +21,7 @@ export default function store(
   logger.debug(`Try #${errorCount + 1}`);
   if (errorCount < 5) {
     try {
-      const file = ipfs.add({ path: filePath });
+      const file = ipfs.add(filePath);
       logger.debug(file.cid);
       ipfs.pin.add(file.cid);
       if (typeof cb === 'function') cb(file.cid);
