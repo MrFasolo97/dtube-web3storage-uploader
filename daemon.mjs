@@ -149,14 +149,14 @@ if (opts.daemon) {
             }
             saveUploadData(upload.ID, ret, false);
           }
-          fs.unlink(`./files/${upload.ID}`, (err) => {
-            if (err) {
-              logger.error(`Error deleting file ${upload.ID}!`);
-              logger.error(err);
-            } else {
-              logger.debug(`File ${upload.ID} deleted!`);
-            }
-          });
+        });
+        fs.unlink(`./files/${upload.ID}`, (err) => {
+          if (err) {
+            logger.error(`Error deleting file ${upload.ID}!`);
+            logger.error(err);
+          } else {
+            logger.debug(`File ${upload.ID} deleted!`);
+          }
         });
       });
     } else if (req.headers['hook-name'] === 'post-create') {
