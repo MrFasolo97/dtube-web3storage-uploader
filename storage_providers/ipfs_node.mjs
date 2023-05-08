@@ -17,12 +17,11 @@ export default function store(
   errorCount = 0,
 ) {
   const filePath = path.resolve('files', fileName);
-  const fileStream = fs.createReadStream(filePath);
   const ipfs = IPFS.create();
   logger.debug(`Try #${errorCount + 1}`);
   if (errorCount < 5) {
     try {
-      const file = ipfs.add(fileStream);
+      const file = ipfs.add({ path: filePath });
       logger.debug(file.cid);
       ipfs.pin.add(file.cid);
       if (typeof cb === 'function') cb(file.cid);
