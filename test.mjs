@@ -3,7 +3,7 @@ import trimOffNewlines from 'trim-off-newlines';
 import { readFileSync } from 'fs';
 import tus from 'tus-js-client';
 import mime from 'mime';
-import javalon from './javalon.js';
+import { javalon } from './javalon.js';
 
 let username;
 let pubkey;
@@ -87,6 +87,9 @@ function post() {
     console.log(reason);
   });
 }
+
+
+javalon.init();
 
 process.stdout.write('Username: ');
 rl.on('line', (line) => {

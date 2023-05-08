@@ -23,6 +23,7 @@
     "form-data": "^4.0.0",
     "javalon": "^1.0.36",
     "js-mcs-sdk": "^4.0.2",
+    "kubo-rpc-client": "^3.0.1",
     "log4js": "^6.6.1",
     "mime": "^3.0.0",
     "project-version": "^2.0.0",
