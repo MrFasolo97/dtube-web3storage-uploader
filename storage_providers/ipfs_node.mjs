@@ -24,6 +24,7 @@ export default async function store(
     try {
       const file = await ipfs.add(fileStream);
       logger.debug(file.cid);
+      await ipfs.pin.add(file.cid);
       if (typeof cb === 'function') cb(file.cid);
     } catch (error) {
       // logger.error(error);
