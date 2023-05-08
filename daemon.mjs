@@ -63,7 +63,7 @@ loadStoragePlugins(configJSON);
 
 // Takes 3 parameters:
 // a config Object, file's name as string and string defining the original uploader.
-async function uploadFile(configJSONRef, fileId, uploadedBy, cb) {
+function uploadFile(configJSONRef, fileId, uploadedBy, cb, onComplete) {
   let ret;
   const fileName = sanitize(fileId);
   logger.info(storageStore);
