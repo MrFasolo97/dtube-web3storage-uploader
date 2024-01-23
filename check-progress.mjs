@@ -1,7 +1,8 @@
+/* eslint-disable linebreak-style */
 import { Command } from 'commander';
 import axios from 'axios';
 import * as fs from 'fs';
-import javalon from './javalon.js';
+import javalon from 'javalon2';
 
 const program = new Command();
 program
@@ -35,7 +36,7 @@ if (opts.id !== null) {
     headers: {
       apikey: apiKey,
       username: username,
-      pubkey: pubKey,
+      pubKey: pubKey,
       signature: Buffer.from(JSON.stringify(javalon.signData(privKey, pubKey, `${username}_${ts}`, ts, username)), 'utf8').toString('base64'),
       ts: ts,
     },

@@ -1,3 +1,4 @@
+/* eslint-disable linebreak-style */
 import net from 'net';
 import log4js from 'log4js';
 import util from 'util';
@@ -38,13 +39,13 @@ async function authenticateRequest(base64signature) {
   let r;
   let ownedKey;
   logger.debug(signature);
-  if (typeof signature.username !== 'undefined' && typeof signature.ts !== 'undefined' && typeof signature.pubkey !== 'undefined') {
+  if (typeof signature.username !== 'undefined' && typeof signature.ts !== 'undefined' && typeof signature.pubKey !== 'undefined') {
     await util.promisify(
       javalon.getAccount,
     )(signature.username).then((account) => {
       if (typeof account !== 'undefined') {
         for (let i = 0; i < account.keys.length; i += 1) {
-          if (account.keys[i].pub === signature.pubkey) {
+          if (account.keys[i].pub === signature.pubKey) {
             ownedKey = true;
           }
         }
