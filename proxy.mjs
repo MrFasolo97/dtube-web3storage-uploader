@@ -1,7 +1,7 @@
 import net from 'net';
 import log4js from 'log4js';
 import util from 'util';
-import javalon from './javalon.js';
+import javalon from 'javalon2';
 
 log4js.configure({
   appenders: {
@@ -99,7 +99,7 @@ server.on('connection', (clientToProxySocket) => {
   logger.debug('Client connected to proxy');
   let auth;
   clientToProxySocket.once('data', async (data) => {
-    let needsAuth = true;
+    const needsAuth = true;
     let isTLSConnection = data.toString().indexOf('CONNECT') !== -1;
     isTLSConnection = false;
     const serverAddress = '127.0.0.1';
@@ -121,7 +121,7 @@ server.on('connection', (clientToProxySocket) => {
     if ((auth !== false && needsAuth) || !needsAuth) {
       logger.debug(auth);
       // Creating a connection from proxy to destination server
-      let proxyToServerSocket = net.createConnection(
+      const proxyToServerSocket = net.createConnection(
         {
           host: serverAddress,
           port: serverPort,
@@ -177,7 +177,7 @@ server.on('close', () => {
 server.listen(
   {
     host: '0.0.0.0',
-    port: port,
+    port,
   },
   () => {
     logger.info(`Server listening on 0.0.0.0:${port}`);
